@@ -25,7 +25,6 @@ The **Conan Exiles Mod Manager** is a desktop application designed to simplify a
 
 - **Efficiency:** Streamline the process of managing multiple mods with an easy-to-use interface that puts everything at your fingertips.
 - **Organization:** Keep your mods organized and ensure that your game loads exactly the way you want it to.
-- **Customization:** Tailor the look and feel of the manager to match your personal preferences, enhancing your overall experience.
 - **Simplicity:** With intuitive controls and clear visuals, managing mods has never been easier.
 
 Whether you're looking to maintain a clean mod list, share your setup with friends, or just make your modding experience smoother, the Conan Exiles Mod Manager is the perfect tool for the job.
