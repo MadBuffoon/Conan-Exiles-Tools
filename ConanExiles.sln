@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConanExilesModManager", "ConanExilesModManager\ConanExilesModManager.csproj", "{F59A10BC-136E-4361-95CD-1E9A870B2635}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CE Launcher", "CE Launcher\CE Launcher.csproj", "{653DD04A-C1D1-4563-9E4E-ECA61C6DD9FE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F59A10BC-136E-4361-95CD-1E9A870B2635}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F59A10BC-136E-4361-95CD-1E9A870B2635}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F59A10BC-136E-4361-95CD-1E9A870B2635}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F59A10BC-136E-4361-95CD-1E9A870B2635}.Release|Any CPU.Build.0 = Release|Any CPU
+		{653DD04A-C1D1-4563-9E4E-ECA61C6DD9FE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{653DD04A-C1D1-4563-9E4E-ECA61C6DD9FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{653DD04A-C1D1-4563-9E4E-ECA61C6DD9FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{653DD04A-C1D1-4563-9E4E-ECA61C6DD9FE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
