@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConanExilesModManager", "ConanExilesModManager\ConanExilesModManager.csproj", "{F59A10BC-136E-4361-95CD-1E9A870B2635}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CE Launcher", "CE Launcher\CE Launcher.csproj", "{653DD04A-C1D1-4563-9E4E-ECA61C6DD9FE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CE_Launcher", "CE_Launcher\CE_Launcher.csproj", "{653DD04A-C1D1-4563-9E4E-ECA61C6DD9FE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

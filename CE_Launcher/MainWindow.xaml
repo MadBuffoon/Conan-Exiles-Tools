@@ -1,7 +1,7 @@
 ﻿<Window x:Class="CE_Launcher.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="CE Launcher" Height="125" Width="400">
+        Title="CE_Launcher" Height="125" Width="400">
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
