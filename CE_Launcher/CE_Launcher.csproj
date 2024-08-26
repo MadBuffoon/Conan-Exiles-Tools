@@ -19,4 +19,12 @@
       <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Content Include="obj\CE_Launcher.csproj.nuget.dgspec.json" />
+      <Content Include="obj\Debug\net7.0-windows\CE_Launcher.AssemblyInfoInputs.cache" />
+      <Content Include="obj\Debug\net7.0-windows\CE_Launcher.assets.cache" />
+      <Content Include="obj\Debug\net7.0-windows\CE_Launcher.csproj.AssemblyReference.cache" />
+      <Content Include="obj\Debug\net7.0-windows\CE_Launcher_MarkupCompile.cache" />
+    </ItemGroup>
+
 </Project>
