@@ -1,211 +1,99 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using Newtonsoft.Json;
-using Microsoft.WindowsAPICodePack.Dialogs;
-using System.Diagnostics;
 
 namespace ConanExilesModManager
 {
     public partial class MainWindow : Window
     {
         private Border _selectedRow; // Track the currently selected row
+        // Variables to track the last click time and double-click detection
         private DateTime _lastClickTime;
-        private const int DoubleClickTime = 300; // Milliseconds
-        private bool _isIdSortedAscending = true;
-        private bool _isNameSortedAscending = true;
-        private bool _isSizeSortedAscending = true;
+        private const int DoubleClickTime = 300; // Time in milliseconds for double-click detection
 
+        // Variables to track the sorting order for Available mods
+        private bool _isAvailableIdSortedAscending = true;
+        private bool _isAvailableNameSortedAscending = true;
+        private bool _isAvailableSizeSortedAscending = true;
+
+        // Variables to track the sorting order for Selected mods
+        private bool _isSelectedIdSortedAscending = true;
+        private bool _isSelectedNameSortedAscending = true;
+        private bool _isSelectedSizeSortedAscending = true;
 
         public MainWindow()
-{
-    InitializeComponent();
-    LoadSettings(); // Load settings when the window is initialized
-    this.KeyDown += OnKeyDown;
-}
-        
-        private void AddContextMenu(Grid modRow, string modId)
         {
-            var contextMenu = new ContextMenu();
-
-            // Menu item for opening the mod's Steam page
-            var openSteamPageMenuItem = new MenuItem { Header = "Open Mod Steam Page" };
-            openSteamPageMenuItem.Click += (s, e) => OpenModSteamPage(modId);
-            contextMenu.Items.Add(openSteamPageMenuItem);
-
-            // Menu item for exporting all selected mods
-            var exportAllMenuItem = new MenuItem { Header = "Export" };
-            exportAllMenuItem.Click += (s, e) => ExportAllSelectedMods();
-            contextMenu.Items.Add(exportAllMenuItem);
-
-            modRow.ContextMenu = contextMenu;
+            InitializeComponent();
+            SetWindowTitleWithVersion();
+            SettingsManager.LoadWindowPositionAndSize(this);
+            LoadSettings();
+            this.KeyDown += OnKeyDown;
         }
 
-        private void ExportAllSelectedMods()
+        private void SetWindowTitleWithVersion()
         {
-            var ids = new List<string>();
+            Version version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            string versionString = $"v{version.Major}.{version.Minor}.{version.Build}";
+            this.Title = $"Conan Exiles Mod Manager {versionString}";
+        }
+        private void Button_SaveSettings_OnClick(object sender, RoutedEventArgs e)
+        {
+            SettingsManager.SaveSetting("ModFolder", Mod_Folder_Text.Text);
+            SettingsManager.SaveSetting("WorkshopModFolder", WorkshopModFolder_Text.Text);
+            SettingsManager.SaveSetting("ConanExilesFolder", ConanExilesFolder_Text.Text);
 
-            foreach (var child in SelectedModsPanel.Children.OfType<Border>())
+            MessageBox.Show("Settings have been saved successfully.", "Save Settings", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        private void LoadSettings()
+        {
+            // Check if the settings file exists before attempting to load it
+            if (!SettingsManager.SettingsFileExists())
             {
-                var grid = child.Child as Grid;
-                var idText = grid.Children[0] as TextBlock; // Folder Name (ID)
-
-                ids.Add(idText.Text);
+                MessageBox.Show("Settings file not found. Please go to the settings tab and fix.", "Load Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
 
-            // Join all IDs with commas and set the result to the Import_Export TextBox
-            Import_Export.Text = string.Join(", ", ids);
+            var settings = SettingsManager.LoadSettings();
+            if (settings.TryGetValue("ModFolder", out var modFolder))
+                Mod_Folder_Text.Text = modFolder;
 
-            // Find the TabControl
-            var tabControl = this.FindName("MainTabControl") as TabControl;
-            if (tabControl != null)
+            if (settings.TryGetValue("WorkshopModFolder", out var workshopFolder))
+                WorkshopModFolder_Text.Text = workshopFolder;
+
+            if (settings.TryGetValue("ConanExilesFolder", out var conanFolder))
+                ConanExilesFolder_Text.Text = conanFolder;
+
+            ModManager.LoadAvailableMods(AvailableModsPanel, SelectedModsPanel, workshopFolder, this);
+        }
+
+        private void Button_Import_OnClick(object sender, RoutedEventArgs e)
+        {
+            ModManager.LoadAvailableMods(AvailableModsPanel, SelectedModsPanel, WorkshopModFolder_Text.Text, this);
+            ModManager.ImportMods(AvailableModsPanel, SelectedModsPanel, Import_Export.Text, this);
+        }
+
+        private void Button_Export_OnClick(object sender, RoutedEventArgs e)
+        {
+            ModManager.ExportMods(SelectedModsPanel, Import_Export);
+        }
+
+        
+        private void OnKeyDown(object sender, KeyEventArgs e)
+        {
+            if (_selectedRow != null)
             {
-                // Find the specific TabItem by Header
-                foreach (TabItem tabItem in tabControl.Items)
+                if (e.Key == Key.Up)
                 {
-                    if (tabItem.Header.ToString() == "Import/Export")
-                    {
-                        tabControl.SelectedItem = tabItem;
-                        break;
-                    }
+                    MoveUp_Click(sender, e);
+                }
+                else if (e.Key == Key.Down)
+                {
+                    MoveDown_Click(sender, e);
                 }
             }
-        }
-
-
-
-
-
-        private void OpenModSteamPage(string modId)
-        {
-            string url = $"https://steamcommunity.com/sharedfiles/filedetails/?id={modId}";
-            try
-            {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = url,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to open the Steam page. {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-
-
-private bool _isAvailableIdSortedAscending = true;
-private bool _isAvailableNameSortedAscending = true;
-private bool _isAvailableSizeSortedAscending = true;
-
-private bool _isSelectedIdSortedAscending = true;
-private bool _isSelectedNameSortedAscending = true;
-private bool _isSelectedSizeSortedAscending = true;
-
-private void SortAvailableByID(object sender, MouseButtonEventArgs e)
-{
-    if (e.ClickCount == 2)
-    {
-        SortMods("ID", AvailableModsPanel, ref _isAvailableIdSortedAscending);
-    }
-}
-
-private void SortAvailableByName(object sender, MouseButtonEventArgs e)
-{
-    if (e.ClickCount == 2)
-    {
-        SortMods("Name", AvailableModsPanel, ref _isAvailableNameSortedAscending);
-    }
-}
-
-private void SortAvailableBySize(object sender, MouseButtonEventArgs e)
-{
-    if (e.ClickCount == 2)
-    {
-        SortMods("Size", AvailableModsPanel, ref _isAvailableSizeSortedAscending);
-    }
-}
-
-private void SortSelectedByID(object sender, MouseButtonEventArgs e)
-{
-    if (e.ClickCount == 2)
-    {
-        SortMods("ID", SelectedModsPanel, ref _isSelectedIdSortedAscending);
-    }
-}
-
-private void SortSelectedByName(object sender, MouseButtonEventArgs e)
-{
-    if (e.ClickCount == 2)
-    {
-        SortMods("Name", SelectedModsPanel, ref _isSelectedNameSortedAscending);
-    }
-}
-
-private void SortSelectedBySize(object sender, MouseButtonEventArgs e)
-{
-    if (e.ClickCount == 2)
-    {
-        SortMods("Size", SelectedModsPanel, ref _isSelectedSizeSortedAscending);
-    }
-}
-
-private void SortMods(string column, StackPanel panel, ref bool isAscending)
-{
-    // Get all the rows except for the header row (assumed to be the first child)
-    var rows = panel.Children.OfType<Border>().ToList();
-
-    // Sort the rows based on the selected column
-    IOrderedEnumerable<Border> sortedRows = null;
-
-    switch (column)
-    {
-        case "ID":
-            sortedRows = isAscending
-                ? rows.OrderBy(row => ((row.Child as Grid).Children[0] as TextBlock).Text)
-                : rows.OrderByDescending(row => ((row.Child as Grid).Children[0] as TextBlock).Text);
-            break;
-
-        case "Name":
-            sortedRows = isAscending
-                ? rows.OrderBy(row => ((row.Child as Grid).Children[1] as TextBlock).Text)
-                : rows.OrderByDescending(row => ((row.Child as Grid).Children[1] as TextBlock).Text);
-            break;
-
-        case "Size":
-            sortedRows = isAscending
-                ? rows.OrderBy(row => Convert.ToDouble(((row.Child as Grid).Children[2] as TextBlock).Text.Replace(" MB", "")))
-                : rows.OrderByDescending(row => Convert.ToDouble(((row.Child as Grid).Children[2] as TextBlock).Text.Replace(" MB", "")));
-            break;
-    }
-
-    isAscending = !isAscending; // Toggle the sorting order for next time
-
-    // Clear the panel and re-add the sorted rows
-    panel.Children.Clear();
-
-    // Add the sorted rows back to the panel
-    foreach (var row in sortedRows)
-    {
-        panel.Children.Add(row);
-    }
-}
-
-
-
-
-
-
-
-        private void RefreshButton_Click(object sender, RoutedEventArgs e)
-        {
-            LoadAvailableMods(); // Reload the available mods when the Refresh button is clicked
         }
 
         private void MoveUp_Click(object sender, RoutedEventArgs e)
@@ -236,44 +124,149 @@ private void SortMods(string column, StackPanel panel, ref bool isAscending)
             }
         }
 
-        private void ModInfo_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        private void Button_ModFolder_OnClick(object sender, RoutedEventArgs e)
         {
-            if (sender is Grid modRow)
+            MessageBox.Show("Please select the folder where the modlist.txt file is located.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+            string folderPath = SettingsManager.SelectFolder(); // Updated to use SettingsManager.SelectFolder
+            if (!string.IsNullOrEmpty(folderPath))
             {
-                DateTime now = DateTime.Now;
-
-                if ((now - _lastClickTime).TotalMilliseconds <= DoubleClickTime)
-                {
-                    // Double-click detected
-                    if (modRow.Parent is Border border)
-                    {
-                        if (SelectedModsPanel.Children.Contains(border))
-                        {
-                            // Move from Selected to Available
-                            SelectedModsPanel.Children.Remove(border);
-                            AvailableModsPanel.Children.Add(border);
-                        }
-                        else if (AvailableModsPanel.Children.Contains(border))
-                        {
-                            // Move from Available to Selected
-                            AvailableModsPanel.Children.Remove(border);
-                            SelectedModsPanel.Children.Add(border);
-
-                            // Select and highlight the row in the Selected Mods panel
-                            SelectRow(border);
-                        }
-                    }
-                }
-                else if (modRow.Parent is Border border && SelectedModsPanel.Children.Contains(border))
-                {
-                    // Single-click, select the row but only in the Selected Mods panel
-                    SelectRow(border);
-                }
-
-                _lastClickTime = now;
+                Mod_Folder_Text.Text = folderPath;
+                SettingsManager.SaveSetting("ModFolder", folderPath);
             }
         }
 
+        private void Button_WorkshopMod_OnClick(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("Please select the folder where the \\workshop\\content\\440900 folder is located.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+            string folderPath = SettingsManager.SelectFolder(); // Updated to use SettingsManager.SelectFolder
+            if (!string.IsNullOrEmpty(folderPath))
+            {
+                WorkshopModFolder_Text.Text = folderPath;
+                SettingsManager.SaveSetting("WorkshopModFolder", folderPath);
+            }
+        }
+
+        private void Button_ConanExilesFolder_OnClick(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("Please select the folder where the game is installed.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+            string folderPath = SettingsManager.SelectFolder(); // Updated to use SettingsManager.SelectFolder
+            if (!string.IsNullOrEmpty(folderPath))
+            {
+                ConanExilesFolder_Text.Text = folderPath;
+                SettingsManager.SaveSetting("ConanExilesFolder", folderPath);
+            }
+        }
+
+
+        private void RefreshButton_Click(object sender, RoutedEventArgs e)
+        {
+            ModManager.LoadAvailableMods(AvailableModsPanel, SelectedModsPanel, WorkshopModFolder_Text.Text, this);
+        }
+
+        private void Button_OpenModList_OnClick(object sender, RoutedEventArgs e)
+        {
+            ModManager.LoadAvailableMods(AvailableModsPanel, SelectedModsPanel, WorkshopModFolder_Text.Text, this);
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                InitialDirectory = Mod_Folder_Text.Text,
+                Filter = "Text files (*.txt)|*.txt",
+                Title = "Open Mod List"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                string[] modPaths = System.IO.File.ReadAllLines(dialog.FileName);
+                ModManager.LoadSelectedModsFromTxt(SelectedModsPanel, AvailableModsPanel, modPaths, WorkshopModFolder_Text.Text, this);
+            }
+        }
+
+        private void Button_Save_OnClick(object sender, RoutedEventArgs e)
+        {
+            var saveDialog = new Microsoft.Win32.SaveFileDialog
+            {
+                InitialDirectory = Mod_Folder_Text.Text,
+                Filter = "Text files (*.txt)|*.txt",
+                Title = "Save Mod List",
+                FileName = "ModList.txt"
+            };
+
+            if (saveDialog.ShowDialog() == true)
+            {
+                SaveSelectedModsToFile(saveDialog.FileName);
+            }
+        }
+
+        private void SaveSelectedModsToFile(string filePath)
+        {
+            var lines = new System.Collections.Generic.List<string>();
+
+            foreach (var child in SelectedModsPanel.Children.OfType<Border>())
+            {
+                var grid = child.Child as Grid;
+                var idText = grid.Children[0] as TextBlock;
+                var nameText = grid.Children[1] as TextBlock;
+
+                string baseFolder;
+                string modLine;
+
+                if (idText.Text == "Mods" || nameText.Text == "Mods")
+                {
+                    baseFolder = Mod_Folder_Text.Text;
+                    modLine = System.IO.Path.Combine(baseFolder, nameText.Text + ".pak");
+                }
+                else
+                {
+                    baseFolder = WorkshopModFolder_Text.Text;
+                    modLine = System.IO.Path.Combine(baseFolder, idText.Text, nameText.Text + ".pak");
+                }
+
+                lines.Add(modLine);
+            }
+
+            System.IO.File.WriteAllLines(filePath, lines);
+
+            MessageBox.Show("Mod list saved successfully.", "Save", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            base.OnClosing(e);
+            SettingsManager.SaveWindowPositionAndSize(this);
+        }
+
+        public void OpenModSteamPage(string modId)
+        {
+            string url = $"https://steamcommunity.com/sharedfiles/filedetails/?id={modId}";
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to open the Steam page. {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        public void ExportAllSelectedMods()
+        {
+            var ids = new System.Collections.Generic.List<string>();
+
+            foreach (var child in SelectedModsPanel.Children.OfType<Border>())
+            {
+                var grid = child.Child as Grid;
+                var idText = grid.Children[0] as TextBlock;
+                ids.Add(idText.Text);
+            }
+
+            Import_Export.Text = string.Join(", ", ids);
+            MainTabControl.SelectedIndex = 1; // Assuming "Import/Export" is at index 1
+        }
+
+        // Sorting and Row selection event handlers would go here...
         private void SelectRow(Border row)
         {
             if (_selectedRow != null)
@@ -287,607 +280,85 @@ private void SortMods(string column, StackPanel panel, ref bool isAscending)
             _selectedRow.Background = new SolidColorBrush(Colors.Yellow);
         }
 
-        private void OnKeyDown(object sender, KeyEventArgs e)
+        public void ModInfo_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (_selectedRow != null)
+            if (sender is Grid modRow)
             {
-                if (e.Key == Key.Up)
+                DateTime now = DateTime.Now;
+
+                if ((now - _lastClickTime).TotalMilliseconds <= DoubleClickTime)
                 {
-                    MoveUp_Click(sender, e);
+                    if (modRow.Parent is Border border)
+                    {
+                        if (SelectedModsPanel.Children.Contains(border))
+                        {
+                            SelectedModsPanel.Children.Remove(border);
+                            AvailableModsPanel.Children.Add(border);
+                        }
+                        else if (AvailableModsPanel.Children.Contains(border))
+                        {
+                            AvailableModsPanel.Children.Remove(border);
+                            SelectedModsPanel.Children.Add(border);
+
+                            SelectRow(border);
+                        }
+                    }
                 }
-                else if (e.Key == Key.Down)
+                else if (modRow.Parent is Border border && SelectedModsPanel.Children.Contains(border))
                 {
-                    MoveDown_Click(sender, e);
+                    SelectRow(border);
                 }
+
+                _lastClickTime = now;
+            }
+        }
+        private void SortAvailableByID(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+            {
+                UIManager.SortMods("ID", AvailableModsPanel, ref _isAvailableIdSortedAscending);
             }
         }
 
-        private void LoadAvailableMods()
-{
-    string workshopModFolderPath = WorkshopModFolder_Text.Text;
-
-    if (Directory.Exists(workshopModFolderPath))
-    {
-        // Clear any previous content
-        AvailableModsPanel.Children.Clear();
-        SelectedModsPanel.Children.Clear();
-
-        // Get all directories within the WorkshopModFolder
-        var directories = Directory.GetDirectories(workshopModFolderPath);
-
-        foreach (var dir in directories)
+        private void SortAvailableByName(object sender, MouseButtonEventArgs e)
         {
-            var folderName = Path.GetFileName(dir);
-            var pakFiles = Directory.GetFiles(dir, "*.pak");
-
-            foreach (var pakFile in pakFiles)
+            if (e.ClickCount == 2)
             {
-                var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(pakFile);
-                var fileInfo = new FileInfo(pakFile);
-                var fileSizeInMB = fileInfo.Length / (1024.0 * 1024.0); // Convert size to MB
-
-                // Create a Grid for the mod info row
-                var modRow = new Grid
-                {
-                    Margin = new Thickness(0, 0, 0, 0) // Remove margin between rows
-                };
-
-                // Adjusted column widths
-                modRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.5, GridUnitType.Star) }); // ID column
-                modRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.6, GridUnitType.Star) }); // Name column
-                modRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.9, GridUnitType.Star) }); // Size column
-
-                // Add the Folder Name, Name, and Size to the grid
-                var idText = new TextBlock { Text = folderName, TextAlignment = TextAlignment.Right }; // Folder Name as ID
-                var nameText = new TextBlock { Text = fileNameWithoutExtension, Margin = new Thickness(10, 0, 0, 0) };
-                var sizeText = new TextBlock { Text = $"{fileSizeInMB:F2} MB",TextAlignment = TextAlignment.Right, Margin = new Thickness(5, 0, 5, 0) };
-
-                Grid.SetColumn(nameText, 1);
-                Grid.SetColumn(sizeText, 2);
-
-                modRow.Children.Add(idText);
-                modRow.Children.Add(nameText);
-                modRow.Children.Add(sizeText);
-
-                // Attach hover events for highlighting
-                modRow.MouseEnter += (s, e) => modRow.Background = new SolidColorBrush(Colors.LightGray);
-                modRow.MouseLeave += (s, e) => modRow.Background = new SolidColorBrush(Colors.Transparent);
-
-                // Attach click event handler
-                modRow.MouseLeftButtonDown += ModInfo_MouseLeftButtonDown;
-
-                // Attach context menu for opening Steam page
-                AddContextMenu(modRow, folderName);
-
-                // Create a Border to wrap the modRow and add a line underneath
-                var borderedRow = new Border
-                {
-                    BorderBrush = new SolidColorBrush(Colors.Gray),
-                    BorderThickness = new Thickness(0, 0, 0, 1), // Line between rows
-                    Child = modRow
-                };
-
-                // Add the Border to the Available Mods panel
-                AvailableModsPanel.Children.Add(borderedRow);
-            }
-        }
-    }
-    else
-    {
-        MessageBox.Show("The WorkshopModFolder path does not exist.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-    }
-}
-
-        private void AddHeadersToPanel(StackPanel panel, string title)
-        {
-            // Add title TextBlock
-            panel.Children.Add(new TextBlock
-            {
-                Text = title,
-                FontSize = 16,
-                FontWeight = FontWeights.Bold,
-                Margin = new Thickness(0, 0, 0, 10)
-            });
-
-            // Create a header row for ID, Name, and Size
-            var header = new Grid
-            {
-                Margin = new Thickness(0, 0, 0, 5)
-            };
-
-            // Adjusted column widths
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.5, GridUnitType.Star) }); // ID column
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.6, GridUnitType.Star) }); // Name column
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.9, GridUnitType.Star) }); // Size column
-
-            var idHeader = new TextBlock { Text = "ID", FontWeight = FontWeights.Bold };
-            var nameHeader = new TextBlock { Text = "Name", FontWeight = FontWeights.Bold, Margin = new Thickness(5, 0, 0, 0) };
-            var sizeHeader = new TextBlock { Text = "Size", FontWeight = FontWeights.Bold, Margin = new Thickness(5, 0, 0, 0) };
-
-            Grid.SetColumn(nameHeader, 1);
-            Grid.SetColumn(sizeHeader, 2);
-
-            header.Children.Add(idHeader);
-            header.Children.Add(nameHeader);
-            header.Children.Add(sizeHeader);
-
-            panel.Children.Add(header);
-        }
-
-        private void LoadSettings()
-        {
-            string jsonFilePath = "CEMM_Settings.json";
-
-            if (File.Exists(jsonFilePath))
-            {
-                string json = File.ReadAllText(jsonFilePath);
-                var settings = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-
-                if (settings != null)
-                {
-                    if (settings.ContainsKey("ModFolder"))
-                    {
-                        Mod_Folder_Text.Text = settings["ModFolder"];
-                    }
-
-                    if (settings.ContainsKey("WorkshopModFolder"))
-                    {
-                        WorkshopModFolder_Text.Text = settings["WorkshopModFolder"];
-                    }
-
-                    if (settings.ContainsKey("ConanExilesFolder"))
-                    {
-                        ConanExilesFolder_Text.Text = settings["ConanExilesFolder"];
-                    }
-
-                    // Load window position and size
-                    if (settings.ContainsKey("WindowTop") && settings.ContainsKey("WindowLeft"))
-                    {
-                        this.Top = double.Parse(settings["WindowTop"]);
-                        this.Left = double.Parse(settings["WindowLeft"]);
-                    }
-
-                    if (settings.ContainsKey("WindowHeight") && settings.ContainsKey("WindowWidth"))
-                    {
-                        this.Height = double.Parse(settings["WindowHeight"]);
-                        this.Width = double.Parse(settings["WindowWidth"]);
-                    }
-
-                    // After loading the settings, load the available mods
-                    LoadAvailableMods();
-                }
-            }
-            else
-            {
-                MessageBox.Show("Settings file not found. Please go to settings tab and fix.", "Load Settings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                UIManager.SortMods("Name", AvailableModsPanel, ref _isAvailableNameSortedAscending);
             }
         }
 
-
-        private void SavePathToJson(string key, string path)
+        private void SortAvailableBySize(object sender, MouseButtonEventArgs e)
         {
-            string jsonFilePath = "CEMM_Settings.json"; // Path to save the config file
-            Dictionary<string, string> paths;
-
-            // Load existing JSON if it exists
-            if (File.Exists(jsonFilePath))
+            if (e.ClickCount == 2)
             {
-                string json = File.ReadAllText(jsonFilePath);
-                paths = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-            }
-            else
-            {
-                paths = new Dictionary<string, string>();
-            }
-
-            // Update the path
-            paths[key] = path;
-
-            // Save the updated dictionary back to the file
-            File.WriteAllText(jsonFilePath, JsonConvert.SerializeObject(paths, Formatting.Indented));
-        }
-
-        private void ShowMessage(string message)
-        {
-            MessageBox.Show(message, "Information", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-
-        private string SelectFolder()
-        {
-            var dialog = new CommonOpenFileDialog
-            {
-                IsFolderPicker = true // This ensures the dialog is for folder selection
-            };
-
-            if (dialog.ShowDialog() == CommonFileDialogResult.Ok) // Use CommonFileDialogResult.Ok
-            {
-                return dialog.FileName;
-            }
-            return null;
-        }
-
-        private void Button_ModFolder_OnClick(object sender, RoutedEventArgs e)
-        {
-            // Show message before folder selection
-            ShowMessage("Please select the folder where the modlist.txt file is located.");
-
-            string folderPath = SelectFolder();
-            if (!string.IsNullOrEmpty(folderPath))
-            {
-                Mod_Folder_Text.Text = folderPath;
-                SavePathToJson("ModFolder", folderPath);
+                UIManager.SortMods("Size", AvailableModsPanel, ref _isAvailableSizeSortedAscending);
             }
         }
 
-        private void Button_WorkshopMod_OnClick(object sender, RoutedEventArgs e)
+        private void SortSelectedByID(object sender, MouseButtonEventArgs e)
         {
-            // Show message before folder selection
-            ShowMessage("Please select the folder where the \\workshop\\content\\440900 folder is located.");
-
-            string folderPath = SelectFolder();
-            if (!string.IsNullOrEmpty(folderPath))
+            if (e.ClickCount == 2)
             {
-                WorkshopModFolder_Text.Text = folderPath;
-                SavePathToJson("WorkshopModFolder", folderPath);
+                UIManager.SortMods("ID", SelectedModsPanel, ref _isSelectedIdSortedAscending);
             }
         }
 
-        private void Button_ConanExilesFolder_OnClick(object sender, RoutedEventArgs e)
+        private void SortSelectedByName(object sender, MouseButtonEventArgs e)
         {
-            // Show message before folder selection
-            ShowMessage("Please select the folder where the game is installed.");
-
-            string folderPath = SelectFolder();
-            if (!string.IsNullOrEmpty(folderPath))
+            if (e.ClickCount == 2)
             {
-                ConanExilesFolder_Text.Text = folderPath;
-                SavePathToJson("ConanExilesFolder", folderPath);
+                UIManager.SortMods("Name", SelectedModsPanel, ref _isSelectedNameSortedAscending);
             }
         }
 
-
-        private void Button_SaveSettings_OnClick(object sender, RoutedEventArgs e)
+        private void SortSelectedBySize(object sender, MouseButtonEventArgs e)
         {
-            // Get the current values from the text fields
-            string modFolderPath = Mod_Folder_Text.Text;
-            string workshopModFolderPath = WorkshopModFolder_Text.Text;
-            string conanExilesFolderPath = ConanExilesFolder_Text.Text;
-
-            // Save these values to the JSON file
-            SavePathToJson("ModFolder", modFolderPath);
-            SavePathToJson("WorkshopModFolder", workshopModFolderPath);
-            SavePathToJson("ConanExilesFolder", conanExilesFolderPath);
-
-            // Optionally show a message to indicate the settings were saved
-            MessageBox.Show("Settings have been saved successfully.", "Save Settings", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        private void Button_OpenModList_OnClick(object sender, RoutedEventArgs e)
-{
-    var dialog = new Microsoft.Win32.OpenFileDialog
-    {
-        InitialDirectory = Mod_Folder_Text.Text,
-        Filter = "Text files (*.txt)|*.txt",
-        Title = "Open Mod List"
-    };
-
-    if (dialog.ShowDialog() == true)
-    {
-        string[] modPaths = File.ReadAllLines(dialog.FileName);
-        LoadSelectedModsFromTxt(modPaths);
-    }
-}
-
-private void LoadSelectedModsFromTxt(string[] modPaths)
-{
-    LoadAvailableMods();
-    SelectedModsPanel.Children.Clear();
-
-    foreach (var modPath in modPaths)
-    {
-        string modName = Path.GetFileNameWithoutExtension(modPath);
-        string folderName = Path.GetFileName(Path.GetDirectoryName(modPath));
-        string availableModPath = Path.Combine(WorkshopModFolder_Text.Text, folderName, modName + ".pak");
-
-        bool isAvailable = File.Exists(availableModPath);
-
-        var modRow = new Grid
-        {
-            Margin = new Thickness(0, 0, 0, 0) // Remove margin between rows
-        };
-
-        // Adjusted column widths
-        modRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.5, GridUnitType.Star) }); // ID column
-        modRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.6, GridUnitType.Star) }); // Name column
-        modRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.9, GridUnitType.Star) }); // Size column
-
-        // Add the Folder Name, Name, and Size to the grid
-        var idText = new TextBlock { Text = folderName }; // Folder Name as ID
-        var nameText = new TextBlock { Text = modName, Margin = new Thickness(10, 0, 0, 0) };
-        var sizeText = new TextBlock { Text = isAvailable ? $"{new FileInfo(availableModPath).Length / (1024.0 * 1024.0):F2} MB" : "N/A", Margin = new Thickness(5, 0, 5, 0) };
-
-        Grid.SetColumn(nameText, 1);
-        Grid.SetColumn(sizeText, 2);
-
-        modRow.Children.Add(idText);
-        modRow.Children.Add(nameText);
-        modRow.Children.Add(sizeText);
-
-        // Persistent red background if mod is not available
-        if (!isAvailable)
-        {
-            modRow.Background = new SolidColorBrush(Colors.LightCoral);
-        }
-        else
-        {
-            // Attach hover events for highlighting if available
-            modRow.MouseEnter += (s, e) => modRow.Background = new SolidColorBrush(Colors.LightGray);
-            modRow.MouseLeave += (s, e) => modRow.Background = new SolidColorBrush(Colors.Transparent);
-        }
-
-        // Attach click event handler
-        modRow.MouseLeftButtonDown += ModInfo_MouseLeftButtonDown;
-
-        // Attach context menu for opening Steam page
-        AddContextMenu(modRow, folderName);
-
-        // Create a Border to wrap the modRow and add a line underneath
-        var borderedRow = new Border
-        {
-            BorderBrush = new SolidColorBrush(Colors.Gray),
-            BorderThickness = new Thickness(0, 0, 0, 1), // Line between rows
-            Child = modRow
-        };
-
-        // Add the Border to the Selected Mods panel
-        SelectedModsPanel.Children.Add(borderedRow);
-
-        // Remove from AvailableModsPanel if available
-        if (isAvailable)
-        {
-            RemoveFromAvailableMods(folderName, modName);
-        }
-    }
-}
-
-private void RemoveFromAvailableMods(string folderName, string modName)
-{
-    foreach (var child in AvailableModsPanel.Children.OfType<Border>().ToList())
-    {
-        var grid = child.Child as Grid;
-        var idText = grid.Children[0] as TextBlock;
-        var nameText = grid.Children[1] as TextBlock;
-
-        if (idText.Text == folderName && nameText.Text == modName)
-        {
-            AvailableModsPanel.Children.Remove(child);
-            break;
-        }
-    }
-}
-private void Button_Save_OnClick(object sender, RoutedEventArgs e)
-{
-    var saveDialog = new Microsoft.Win32.SaveFileDialog
-    {
-        InitialDirectory = Mod_Folder_Text.Text, // Start in the ModFolder
-        Filter = "Text files (*.txt)|*.txt",
-        Title = "Save Mod List",
-        FileName = "ModList.txt" // Default filename
-    };
-
-    if (saveDialog.ShowDialog() == true)
-    {
-        SaveSelectedModsToFile(saveDialog.FileName);
-    }
-}
-
-private void SaveSelectedModsToFile(string filePath)
-{
-    var lines = new List<string>();
-
-    foreach (var child in SelectedModsPanel.Children.OfType<Border>())
-    {
-        var grid = child.Child as Grid;
-        var idText = grid.Children[0] as TextBlock; // Folder Name (ID)
-        var nameText = grid.Children[1] as TextBlock; // Mod Name
-
-        string baseFolder;
-        string modLine;
-
-        if (idText.Text == "Mods" || nameText.Text == "Mods")
-        {
-            baseFolder = Mod_Folder_Text.Text;
-            modLine = Path.Combine(baseFolder, nameText.Text + ".pak");
-        }
-        else
-        {
-            baseFolder = WorkshopModFolder_Text.Text;
-            modLine = Path.Combine(baseFolder, idText.Text, nameText.Text + ".pak");
-        }
-
-        lines.Add(modLine);
-    }
-
-    // Write all lines to the file
-    File.WriteAllLines(filePath, lines);
-
-    MessageBox.Show("Mod list saved successfully.", "Save", MessageBoxButton.OK, MessageBoxImage.Information);
-}
-
-private void Button_Export_OnClick(object sender, RoutedEventArgs e)
-{
-    var ids = new List<string>();
-
-    foreach (var child in SelectedModsPanel.Children.OfType<Border>())
-    {
-        var grid = child.Child as Grid;
-        var idText = grid.Children[0] as TextBlock; // Folder Name (ID)
-
-        ids.Add(idText.Text);
-    }
-
-    // Join all IDs with commas and set the result to the Import_Export TextBox
-    Import_Export.Text = string.Join(", ", ids);
-}
-
-private void Button_Import_OnClick(object sender, RoutedEventArgs e)
-{
-    // Reload the available mods to ensure the panel is up-to-date
-    LoadAvailableMods();
-
-    // Clear the SelectedModsPanel before importing
-    SelectedModsPanel.Children.Clear();
-
-    // Split the IDs from the Import_Export TextBox and trim spaces
-    var ids = Import_Export.Text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-        .Select(id => id.Trim())
-        .ToArray();
-
-    // Iterate through each ID
-    foreach (var id in ids)
-    {
-        // Try to find the mod in the AvailableModsPanel first
-        var modFound = false;
-
-        foreach (var child in AvailableModsPanel.Children.OfType<Border>().ToList())
-        {
-            var grid = child.Child as Grid;
-            var idText = grid.Children[0] as TextBlock;
-
-            if (idText.Text == id)
+            if (e.ClickCount == 2)
             {
-                // Mod found in AvailableModsPanel, move it to SelectedModsPanel
-                AvailableModsPanel.Children.Remove(child);
-                SelectedModsPanel.Children.Add(child);
-
-                // Reattach event handlers and context menu
-                ReattachHandlers(child);
-                
-                modFound = true;
-                break;
+                UIManager.SortMods("Size", SelectedModsPanel, ref _isSelectedSizeSortedAscending);
             }
         }
-
-        // If mod is not found in AvailableModsPanel, create a new entry with N/A values
-        if (!modFound)
-        {
-            CreateNAEntry(id);
-        }
-    }
-}
-
-
-
-private void CreateNAEntry(string id)
-{
-    // Initialize variables for Name and Size
-    string name = "N/A";
-    string size = "N/A";
-
-    // Check if the ID exists in the AvailableModsPanel
-    foreach (var child in AvailableModsPanel.Children.OfType<Border>())
-    {
-        var grid = child.Child as Grid;
-        var idText = grid.Children[0] as TextBlock;
-        var nameText = grid.Children[1] as TextBlock;
-        var sizeText = grid.Children[2] as TextBlock;
-
-        if (idText.Text == id)
-        {
-            // Found the mod in AvailableModsPanel, get the Name and Size
-            name = nameText.Text;
-            size = sizeText.Text;
-            break;
-        }
-    }
-
-    // Create a new entry with the found Name and Size, or N/A if not found
-    var modRow = new Grid
-    {
-        Margin = new Thickness(0, 0, 0, 0) // Remove margin between rows
-    };
-
-    // Adjusted column widths
-    modRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.5, GridUnitType.Star) }); // ID column
-    modRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.6, GridUnitType.Star) }); // Name column
-    modRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.9, GridUnitType.Star) }); // Size column
-
-    // Add the ID, Name, and Size to the grid
-    var idTextBlock = new TextBlock { Text = id ,TextAlignment = TextAlignment.Right};
-    var nameTextBlock = new TextBlock { Text = name, Margin = new Thickness(5, 0, 0, 0) };
-    var sizeTextBlock = new TextBlock { Text = size,TextAlignment = TextAlignment.Right, Margin = new Thickness(5, 0, 0, 0) };
-
-    Grid.SetColumn(nameTextBlock, 1);
-    Grid.SetColumn(sizeTextBlock, 2);
-
-    modRow.Children.Add(idTextBlock);
-    modRow.Children.Add(nameTextBlock);
-    modRow.Children.Add(sizeTextBlock);
-
-    // Create a Border to wrap the modRow and add a line underneath
-    var borderedRow = new Border
-    {
-        BorderBrush = new SolidColorBrush(Colors.Gray),
-        BorderThickness = new Thickness(0, 0, 0, 1), // Line between rows
-        Child = modRow
-    };
-
-    // Reattach event handlers and context menu to the new row
-    ReattachHandlers(borderedRow);
-
-    // Add the new modRow to the Selected Mods panel
-    SelectedModsPanel.Children.Add(borderedRow);
-}
-
-
-private void ReattachHandlers(Border modBorder)
-{
-    var grid = modBorder.Child as Grid;
-    var idText = grid.Children[0] as TextBlock;
-
-    // Attach hover events for highlighting
-    modBorder.MouseEnter += (s, e) => modBorder.Background = new SolidColorBrush(Colors.LightGray);
-    modBorder.MouseLeave += (s, e) => modBorder.Background = new SolidColorBrush(Colors.Transparent);
-
-    // Attach click event handler
-    modBorder.MouseLeftButtonDown += ModInfo_MouseLeftButtonDown;
-
-    // Attach context menu for opening Steam page
-    AddContextMenu(grid, idText.Text);
-}
-
-
-
-protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
-{
-    base.OnClosing(e);
-
-    // Load existing settings if they exist
-    string jsonFilePath = "CEMM_Settings.json";
-    Dictionary<string, string> settings;
-
-    if (File.Exists(jsonFilePath))
-    {
-        string json = File.ReadAllText(jsonFilePath);
-        settings = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-    }
-    else
-    {
-        settings = new Dictionary<string, string>();
-    }
-
-    // Save the window's current position and size
-    settings["WindowTop"] = this.Top.ToString();
-    settings["WindowLeft"] = this.Left.ToString();
-    settings["WindowHeight"] = this.Height.ToString();
-    settings["WindowWidth"] = this.Width.ToString();
-
-    // Save all settings back to the JSON file
-    File.WriteAllText(jsonFilePath, JsonConvert.SerializeObject(settings, Formatting.Indented));
-}
-
-
-
-
 
     }
 }
