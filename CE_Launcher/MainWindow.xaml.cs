@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
+using Microsoft.WindowsAPICodePack.Dialogs;
 using Newtonsoft.Json;
 
 namespace CE_Launcher
@@ -23,16 +26,102 @@ namespace CE_Launcher
             LoadSettings(); // Load settings first to get the last selected file
             LoadTxtFiles(); // Load files after settings so we can set the selected item
             CheckIfProcessIsRunning(); // Check if the process is already running
+            SetWindowTitleWithVersion();
+        }
+        
+        private void SetWindowTitleWithVersion()
+        {
+            // Retrieve the version from the assembly
+            Version version = Assembly.GetExecutingAssembly().GetName().Version;
+    
+            // Format the version string to "v1.0.0"
+            string versionString = $"v{version.Major}.{version.Minor}.{version.Build}";
+
+            // Set the window title
+            this.Title = $"CE_Launcher {versionString}";
         }
 
-        private void InitializePaths()
+
+private void ShowMessage(string message)
+{
+    MessageBox.Show(message, "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+}
+
+private string SelectFolder()
+{
+    var dialog = new CommonOpenFileDialog
+    {
+        IsFolderPicker = true // This ensures the dialog is for folder selection
+    };
+
+    if (dialog.ShowDialog() == CommonFileDialogResult.Ok) // Use CommonFileDialogResult.Ok
+    {
+        return dialog.FileName;
+    }
+    return null;
+}
+
+private string SelectFile()
+{
+    var dialog = new CommonOpenFileDialog
+    {
+        Filters = { new CommonFileDialogFilter("Executable Files", "*.exe") }
+    };
+
+    if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+    {
+        return dialog.FileName;
+    }
+    return null;
+}
+
+private void InitializePaths()
+{
+    string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+    settingsFilePath = Path.Combine(currentDirectory, "CELauncher_Settings.json");
+
+    Settings settings;
+
+    if (File.Exists(settingsFilePath))
+    {
+        string json = File.ReadAllText(settingsFilePath);
+        settings = JsonConvert.DeserializeObject<Settings>(json);
+    }
+    else
+    {
+        settings = new Settings();
+    }
+
+    if (string.IsNullOrEmpty(settings.ModFolderPath) || !Directory.Exists(settings.ModFolderPath))
+    {
+        ShowMessage("Please select the folder where the modlist.txt file is located.\nExample: \nConan Exiles \\ConanSandbox \\Mods");
+        settings.ModFolderPath = SelectFolder();
+        if (!string.IsNullOrEmpty(settings.ModFolderPath))
         {
-            // Get the current directory of the application
-            string currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            modFolderPath = Path.Combine(currentDirectory, "ConanSandbox\\Mods");
-            executablePath = Path.Combine(currentDirectory, "ConanSandbox\\Binaries\\Win64\\ConanSandbox.exe");
-            settingsFilePath = Path.Combine(currentDirectory, "CELauncher_Settings.json");
+            SaveSettings(modFolderPath: settings.ModFolderPath);  // Correctly pass the updated path
         }
+    }
+    modFolderPath = settings.ModFolderPath;
+
+    if (string.IsNullOrEmpty(settings.ExecutablePath) || !File.Exists(settings.ExecutablePath))
+    {
+        ShowMessage("Please select the ConanSandbox.exe file.\nExample: \nConan Exiles \\ConanSandbox \\Binaries \\Win64 \\ConanSandbox.exe");
+        settings.ExecutablePath = SelectFile();
+        if (!string.IsNullOrEmpty(settings.ExecutablePath))
+        {
+            SaveSettings(executablePath: settings.ExecutablePath);  // Correctly pass the updated path
+        }
+    }
+    executablePath = settings.ExecutablePath;
+
+    // Load any other settings as required
+    this.Top = settings.WindowTop;
+    this.Left = settings.WindowLeft;
+    CloseOnLaunchCheckBox.IsChecked = settings.CloseOnLaunch;
+}
+
+
+
 
         private void LoadSettings()
         {
@@ -119,19 +208,48 @@ namespace CE_Launcher
             });
         }
 
-        private void SaveSettings(string selectedFile)
+        private void SaveSettings(string selectedFile = null, string modFolderPath = null, string executablePath = null)
         {
-            var settings = new Settings
-            {
-                LastSelectedFile = selectedFile,
-                WindowTop = this.Top,
-                WindowLeft = this.Left,
-                CloseOnLaunch = CloseOnLaunchCheckBox.IsChecked == true  // Save checkbox state
-            };
+            // Load existing settings
+            Settings settings;
 
-            string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
-            File.WriteAllText(settingsFilePath, json);
+            if (File.Exists(settingsFilePath))
+            {
+                string json = File.ReadAllText(settingsFilePath);
+                settings = JsonConvert.DeserializeObject<Settings>(json) ?? new Settings();
+            }
+            else
+            {
+                settings = new Settings();
+            }
+
+            // Update settings based on provided parameters
+            if (!string.IsNullOrEmpty(selectedFile))
+            {
+                settings.LastSelectedFile = selectedFile;
+            }
+
+            if (!string.IsNullOrEmpty(modFolderPath))
+            {
+                settings.ModFolderPath = modFolderPath;
+            }
+
+            if (!string.IsNullOrEmpty(executablePath))
+            {
+                settings.ExecutablePath = executablePath;
+            }
+
+            // Always save the current window position and checkbox state
+            settings.WindowTop = this.Top;
+            settings.WindowLeft = this.Left;
+            settings.CloseOnLaunch = CloseOnLaunchCheckBox.IsChecked == true;
+
+            // Save updated settings to the file
+            string updatedJson = JsonConvert.SerializeObject(settings, Formatting.Indented);
+            File.WriteAllText(settingsFilePath, updatedJson);
         }
+
+
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
@@ -139,7 +257,8 @@ namespace CE_Launcher
 
             if (TxtFileDropdown.SelectedItem is string selectedFile)
             {
-                SaveSettings(selectedFile);
+                SaveSettings(selectedFile: selectedFile);
+
             }
             else
             {
@@ -162,8 +281,8 @@ namespace CE_Launcher
                     {
                         var modListPath = Path.Combine(modFolderPath, "modlist.txt");
                         File.Copy(selectedFile.FullName, modListPath, overwrite: true);
-
-                        SaveSettings(selectedFile.FullName);
+                        
+                        SaveSettings(selectedFile: selectedFile.FullName);
 
                         // Add a 1-second delay before launching the executable
                         await Task.Delay(1000);
@@ -209,11 +328,15 @@ namespace CE_Launcher
         }
     }
 
+
     public class Settings
     {
         public string LastSelectedFile { get; set; }
         public double WindowTop { get; set; }
         public double WindowLeft { get; set; }
-        public bool CloseOnLaunch { get; set; }  // New property to store checkbox state
+        public bool CloseOnLaunch { get; set; }
+        public string ModFolderPath { get; set; } // Add mod folder path
+        public string ExecutablePath { get; set; } // Add executable path
     }
+
 }
