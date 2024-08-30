@@ -83,9 +83,9 @@ namespace ConanExilesModManager
                 modRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.6, GridUnitType.Star) });
                 modRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.9, GridUnitType.Star) });
 
-                var idText = new TextBlock { Text = folderName };
+                var idText = new TextBlock { Text = folderName, TextAlignment = TextAlignment.Right };
                 var nameText = new TextBlock { Text = modName, Margin = new Thickness(10, 0, 0, 0) };
-                var sizeText = new TextBlock { Text = isAvailable ? $"{new FileInfo(availableModPath).Length / (1024.0 * 1024.0):F2} MB" : "N/A", Margin = new Thickness(5, 0, 5, 0) };
+                var sizeText = new TextBlock { Text = isAvailable ? $"{new FileInfo(availableModPath).Length / (1024.0 * 1024.0):F2} MB" : "N/A", TextAlignment = TextAlignment.Right, Margin = new Thickness(5, 0, 5, 0) };
 
                 Grid.SetColumn(nameText, 1);
                 Grid.SetColumn(sizeText, 2);

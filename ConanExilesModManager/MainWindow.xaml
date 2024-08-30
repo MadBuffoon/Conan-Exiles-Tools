@@ -127,7 +127,7 @@
             </TabItem>
 
             <!-- Import/Export Tab -->
-            <TabItem Header="Import/Export" FontWeight="Medium" TabIndex="1">
+            <TabItem Header="Import/Export" FontWeight="Bold" TabIndex="1">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
@@ -203,6 +203,18 @@
                         <Button Content="Save Settings" Click="Button_SaveSettings_OnClick" />
                     </StackPanel>
                 </Grid>
+            </TabItem>
+            <TabItem Header="About" FontWeight="Bold" TabIndex="3">
+                <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top" Margin="50">
+                    <TextBlock Text="Author: MadBuffoon" FontWeight="Bold" FontSize="20"/>
+                    <TextBlock Name="VersionTextBlock" FontWeight="Bold" FontSize="20"/>
+                    <TextBlock FontWeight="Bold" FontSize="20">
+                        GitHub: 
+                        <Hyperlink NavigateUri="https://github.com/MadBuffoon/Conan-Exiles-Tools" RequestNavigate="Hyperlink_RequestNavigate">
+                            Here
+                        </Hyperlink>
+                    </TextBlock>
+                </StackPanel>
             </TabItem>
         </TabControl>
     </Grid>

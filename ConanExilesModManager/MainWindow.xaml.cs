@@ -1,9 +1,11 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Navigation;
 
 namespace ConanExilesModManager
 {
@@ -38,6 +40,12 @@ namespace ConanExilesModManager
             Version version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
             string versionString = $"v{version.Major}.{version.Minor}.{version.Build}";
             this.Title = $"Conan Exiles Mod Manager {versionString}";
+            VersionTextBlock.Text = $"{versionString}";
+        }
+        private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+        {
+            Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+            e.Handled = true;
         }
         private void Button_SaveSettings_OnClick(object sender, RoutedEventArgs e)
         {
@@ -137,7 +145,7 @@ namespace ConanExilesModManager
 
         private void Button_WorkshopMod_OnClick(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Please select the folder where the \\workshop\\content\\440900 folder is located.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Please select the folder where the Steam \\steamapps \\workshop \\content \\440900 folder is located.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
             string folderPath = SettingsManager.SelectFolder(); // Updated to use SettingsManager.SelectFolder
             if (!string.IsNullOrEmpty(folderPath))
             {

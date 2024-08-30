@@ -8,7 +8,9 @@
         <RootNamespace>ConanExiles</RootNamespace>
         <Authors>MadBuffoon</Authors>
         <ApplicationIcon>CEMM_Icon.ico</ApplicationIcon>
-        <Version>1.0.2</Version>
+        <Version>1.0.3</Version>
+        <Title>Conan Exiles Mod Manager</Title>
+        <PackageProjectUrl>https://github.com/MadBuffoon/Conan-Exiles-Tools</PackageProjectUrl>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
